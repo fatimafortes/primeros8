@@ -95,11 +95,11 @@ If this slice works, the product becomes the measurement layer for emergency reh
 | Data | Supabase Postgres | Free tier, RLS built in |
 | Auth | Supabase Auth, Sign in with Google | Admin and worker roles, no passwords to store |
 | Simulation | Three.js scene (fallback: labeled video-sim) + Web Audio alarm | Stack floor: simulation, labeled on screen |
-| Signal 2 (adaptive) | Scheduler scoring zones/shifts by protective-action time AND geodata (time-to-assembly, location-at-trigger), choosing the next window, the next scenario variant, and which zone/shift it targets | Stack floor: adaptive logic, real not faked |
-| Signal 3 (geodata) | Browser Geolocation for assembly-point check-in, coarse zone only. Location-at-trigger and time-to-assembly per zone/shift are consumed by the adaptive scheduler, not just displayed. | Stack floor: third signal, wired into the scheduler, not a bystander |
+| Signal 2 (adaptive) | Scheduler scoring zones/shifts by protective-action time AND assembly-point geodata (time-to-assembly, verified check-in), grouped by each worker's already-assigned zone/shift, choosing the next window, the next scenario variant, and which zone/shift it targets | Stack floor: adaptive logic, real not faked |
+| Signal 3 (geodata) | Browser Geolocation for assembly-point check-in only — coarse zone estimate, verified flag, time-to-assembly. No live location capture at the trigger moment: zone attribution for scoring comes from the worker's assigned zone, not a second GPS read, so nothing here tracks a worker's live position during a shift (Blueprint condition 3). | Stack floor: third signal, wired into the scheduler, not a bystander |
 | Realtime | Supabase Realtime | Delivers the trigger without push infrastructure |
 
-**A real chain, not just a stack:** simulation fires the measurement (time-to-protective-action) → that measurement plus geodata (time-to-assembly, location-at-trigger, by zone and shift) feed the adaptive scheduler → the scheduler chooses the next scenario variant, the next window, and who it targets. Removing the simulation still only breaks stack-floor compliance, not the timer — the tap event doesn't need a 3D scene to fire. But geodata is no longer a bystander: without it the scheduler knows only response time, not where people were or how long the walk took, so it can't tell a zone with a slow tap from a zone with a long walk to the assembly point. That distinction is what lets it target correctly.
+**A real chain, not just a stack:** simulation fires the measurement (time-to-protective-action) → that measurement plus assembly-point geodata (time-to-assembly, verified check-in) feed the adaptive scheduler, grouped by each worker's assigned zone and shift → the scheduler chooses the next scenario variant, the next window, and who it targets. Removing the simulation still only breaks stack-floor compliance, not the timer — the tap event doesn't need a 3D scene to fire. Geodata here is not a live trigger-time location read — that would be worker tracking, which Condition 3 rules out — it's the assembly-point check-in plus a zone the worker was already assigned to. Without it the scheduler knows only response time, not how long the walk took or which zone a slow result belongs to, so it can't target correctly. That coupling is real without adding any tracking beyond decision, action and timing data.
 
 ## 10. Blueprint conditions → where they live in the product
 
@@ -132,6 +132,7 @@ If this slice works, the product becomes the measurement layer for emergency reh
 7. RLS: log in as worker B, try to read worker A's row by id → denied.
 8. Footer disclaimer visible on all three worker screens — enrollment, trigger moment, and debrief — checked individually against the updated mockup, not assumed from the debrief screen alone.
 9. Shadow clause: the "Simulación · escenario ficticio" label appears on the trigger screen before/during the shaking moment, for every scenario variant, no exceptions.
+10. RLS: logged in as admin, `select * from p8_enrollments` returns nothing — no policy grants admin access to the trauma pre-check, not even scoped to their own site.
 
 **Persona test (Layer 1)**
 Synthetic user: *"Eres Don Chuy, 41, operario de línea en una planta en Querétaro. Traes guantes y tapones para los oídos. Tienes el celular en el bolsillo del pantalón. Usas WhatsApp y Facebook, casi ninguna otra app. Desconfías de que la empresa te vigile. Lees rápido pero no lees lo que parece contrato. Si algo te confunde, guardas el teléfono y sigues trabajando."*
