@@ -51,8 +51,8 @@ flowchart LR
         A1[Schedules window] --> A2[Reads aggregate report] --> A3[Accepts or edits<br/>next proposed window]
     end
     subgraph System
-        S1[Randomizes fire moment] --> S2[Delivers trigger] --> S3[Logs timings]
-        S3 --> S4[Aggregates by zone] --> S5[Adaptive scheduler<br/>proposes next drill]
+        S1[Randomizes fire moment] --> S2[Delivers trigger]
+        S3[Logs timings] --> S4[Aggregates by zone] --> S5[Adaptive scheduler<br/>proposes next drill]
     end
     subgraph Worker
         W1[Enrolls: consent<br/>+ trauma pre-check] --> W2[Receives trigger] --> W3[Taps protected]
@@ -84,6 +84,8 @@ If this slice works, the product becomes the measurement layer for emergency reh
 - No real plant, no real workers, no real personal data. Seeded, invented data only, labeled.
 - No individual leaderboard, no biometric, facial or emotional capture. Ever.
 - No claim that the measured time predicts survival.
+- Pre-committed cut if the 3D scene threatens the deadline: drop Three.js/WebXR entirely and ship the labeled video-sim/CSS-shake fallback the stack floor already allows. Decided now, not renegotiated under deadline pressure.
+- Pre-committed fallback if Google OAuth setup stalls past commit 3: Supabase magic-link email auth. Flagged, not silent — WEEK6's security floor names Google sign-in specifically, so this swap needs my own sign-off before use, not an automatic substitution.
 
 ## 9. Architecture + stack
 
@@ -93,22 +95,22 @@ If this slice works, the product becomes the measurement layer for emergency reh
 | Data | Supabase Postgres | Free tier, RLS built in |
 | Auth | Supabase Auth, Sign in with Google | Admin and worker roles, no passwords to store |
 | Simulation | Three.js scene (fallback: labeled video-sim) + Web Audio alarm | Stack floor: simulation, labeled on screen |
-| Signal 2 (adaptive) | Scheduler scoring zones/shifts by past response times, choosing next window and scenario variant | Stack floor: adaptive logic, real not faked |
-| Signal 3 (geodata) | Browser Geolocation for assembly-point check-in, coarse zone only | Stack floor: third signal, and the mustering bridge |
+| Signal 2 (adaptive) | Scheduler scoring zones/shifts by protective-action time AND geodata (time-to-assembly, location-at-trigger), choosing the next window, the next scenario variant, and which zone/shift it targets | Stack floor: adaptive logic, real not faked |
+| Signal 3 (geodata) | Browser Geolocation for assembly-point check-in, coarse zone only. Location-at-trigger and time-to-assembly per zone/shift are consumed by the adaptive scheduler, not just displayed. | Stack floor: third signal, wired into the scheduler, not a bystander |
 | Realtime | Supabase Realtime | Delivers the trigger without push infrastructure |
 
-**Multiplicative, not additive:** the simulation creates the measurement, the measurement feeds the adaptive scheduler, and the scheduler changes when and how the next simulation fires. Remove any one and the other two stop meaning anything.
+**A real chain, not just a stack:** simulation fires the measurement (time-to-protective-action) → that measurement plus geodata (time-to-assembly, location-at-trigger, by zone and shift) feed the adaptive scheduler → the scheduler chooses the next scenario variant, the next window, and who it targets. Removing the simulation still only breaks stack-floor compliance, not the timer — the tap event doesn't need a 3D scene to fire. But geodata is no longer a bystander: without it the scheduler knows only response time, not where people were or how long the walk took, so it can't tell a zone with a slow tap from a zone with a long walk to the assembly point. That distinction is what lets it target correctly.
 
 ## 10. Blueprint conditions → where they live in the product
 
 | Condition | Implementation |
 |---|---|
-| 1. Shadow clause | Scenarios are invented plants and invented events. No 19S, no real building, no real victim. A note in the scenario picker says so. |
-| 2. Trauma pre-check, exit, non-VR path | Enrollment asks privately about prior quake or collapse experience; intensity preview before first drill; "Salir del ejercicio" visible on every screen; text+vibration path presented as equal, not lesser. |
+| 1. Shadow clause | Scenarios are invented plants and invented events. No 19S, no real building, no real victim. Visible behavior: the on-screen label "Simulación · escenario ficticio" on the trigger screen (in the mockup). No scenario-picker screen exists in this build — the claim is anchored to that label, not to an unbuilt picker. |
+| 2. Trauma pre-check, exit, non-VR path | Enrollment asks privately about prior quake or collapse experience; intensity preview before first drill; "Salir del ejercicio" visible on every screen; text+vibration path presented as equal, not lesser. Acceptance criterion: the non-immersive path runs the same protective-action timer, produces the same scored fields, and uses the same debrief wording as the 3D/video-sim path — nothing in copy or UI marks it as a lite or fallback version. |
 | 3. No biometric / aggregate only | Only decision, action and timing data. Admin views are aggregate by zone and shift, minimum 5 responses to display. Worker can delete his own data; retention 90 days. |
-| 4. Completion ≠ competence | No certificates. Every result screen says the measured number is a rehearsal result, not certified competence or legal compliance, and a physical-drill comparison is required before any improvement claim. |
+| 4. Completion ≠ competence | No certificates. Every result screen says the measured number is a rehearsal result, not certified competence or legal compliance. This slice shows a single session's result and the zone average only — it makes no improvement or trend claim, so Condition 4's before-any-improvement-claim gate has nothing to trigger yet. The gate becomes a real feature requirement only if a future slice adds trend/comparison claims. |
 | 5. Financing | Out of scope for the slice, stated in the packet and in the demo: first proof phase is institutional or insurer funded, never worker or school paid. |
-| 6. Unverified claims stated on screen | Persistent footer: "No hay evidencia de que este entrenamiento cambie el comportamiento en un sismo real. Esto mide el ensayo, no la supervivencia." |
+| 6. Unverified claims stated on screen | Persistent footer, required on all three worker screens — enrollment, trigger moment, and debrief, not just the result screen. Acceptance criterion for feature 5: the one-line disclaimer renders on every worker screen; mockup updated to match. Text: "No hay evidencia de que este entrenamiento cambie el comportamiento en un sismo real. Esto mide el ensayo, no la supervivencia." |
 
 ## 11. Security floor
 
@@ -128,7 +130,8 @@ If this slice works, the product becomes the measurement layer for emergency reh
 5. Geolocation denied → check-in still possible manually, flagged as unverified.
 6. Admin view with fewer than 5 responses → shows "insufficient data", not individual rows.
 7. RLS: log in as worker B, try to read worker A's row by id → denied.
-8. Footer disclaimer visible on every screen, including the result screen.
+8. Footer disclaimer visible on all three worker screens — enrollment, trigger moment, and debrief — checked individually against the updated mockup, not assumed from the debrief screen alone.
+9. Shadow clause: the "Simulación · escenario ficticio" label appears on the trigger screen before/during the shaking moment, for every scenario variant, no exceptions.
 
 **Persona test (Layer 1)**
 Synthetic user: *"Eres Don Chuy, 41, operario de línea en una planta en Querétaro. Traes guantes y tapones para los oídos. Tienes el celular en el bolsillo del pantalón. Usas WhatsApp y Facebook, casi ninguna otra app. Desconfías de que la empresa te vigile. Lees rápido pero no lees lo que parece contrato. Si algo te confunde, guardas el teléfono y sigues trabajando."*
