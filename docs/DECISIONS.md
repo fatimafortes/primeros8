@@ -96,14 +96,30 @@ plan change to move Deploy 1 here, ahead of features 2–3).
 - Disclaimer footer now confirmed present on all four worker-facing screens (enrollment, trigger,
   check-in, debrief) — one more than the three originally mocked, added to check-in too for consistency.
 
-**Still pending on the Supabase side, none of it run yet:**
-1. Migration 0004 (`p8_sites` public read policy).
-2. Migration 0005 (`p8_my_zone_aggregate()` function).
-3. Realtime publication toggle for `p8_drill_events` (dashboard click, not SQL).
-4. `seed.sql` — waiting on a real `auth.users.id`, not a placeholder.
+**Confirmed same day:** Google sign-in works on the live URL. Migration 0004's policy was already in
+effect (existed before I asked for it to run — noted, not chased further). Migration 0005 ran clean.
+`p8_drill_events` is on in the `supabase_realtime` publication. Real `auth.users.id` received
+(`a83f58b2-f3cf-4b05-9113-1e4b5082172e`) and filled into `seed.sql`, committed — not yet run.
 
-**Tomorrow's first move:** run 0004 and 0005, flip the Realtime toggle, get the real ID into the seed,
-run it, then do a full live walkthrough of the worker path end to end (enroll → wait → trigger → protect
-→ check in → debrief) to see what the mechanical test pass (feature 9) actually catches. Feature 7
-(aggregate dashboard) is next after that — it can reuse the same `SECURITY DEFINER` pattern as 0005, just
-scoped to "all zones/shifts at the admin's site" instead of "my own zone."
+- **Feature 7 (admin dashboard):** `p8_site_aggregates()` (**migration 0006, drafted, not yet run**) — same
+  `SECURITY DEFINER` + pinned `search_path` pattern as 0005, but resolves the caller's *site* instead of
+  their own zone, and returns every zone/shift at that site. Gated by role inside the function itself
+  (`where role = 'admin'` in the first CTE) — a worker calling it gets zero rows back, not another zone's
+  data, so the gate doesn't depend on the app never calling it from the wrong place.
+  Also caught and fixed: `/start` was already redirecting admins to `/admin`, which had no `page.tsx`
+  under the layout and would have 404'd — added it, redirects to `/admin/dashboard`.
+- **Feature 8 (adaptive scheduler):** `lib/scheduler.ts` is a pure function, no Supabase/Next imports —
+  picks the zone/shift with the worst combined protective-action + assembly time among zone/shifts at or
+  above the 5-response floor, returns `null` (no fake proposal) if nothing has crossed it yet. Scenario
+  variant rotates through a fixed 3-item list, indexed by how many proposals the site has already made —
+  deterministic, not random. Computed on page load / button click, not a cron — no Vercel Cron needed.
+  Scope cut, stated plainly: "edit before accepting" is "schedule a different window manually instead"
+  (the existing `/admin/drills/new` form), not a dedicated inline-edit UI for the proposal's own fields.
+
+**Still pending on the Supabase side, none of it run yet:**
+1. Migration 0006 (`p8_site_aggregates()` function) — blocks the admin dashboard and the scheduler both.
+2. `seed.sql` — ID is filled in and committed, ready to run.
+
+**Tomorrow's first move:** run 0006, then `seed.sql`, then do a full live walkthrough end to end on both
+roles — admin (schedule → dashboard → propose → accept) and worker (enroll → wait → trigger → protect →
+check in → debrief) — to see what the mechanical test pass (feature 9) actually catches.
