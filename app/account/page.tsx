@@ -27,8 +27,14 @@ export default async function AccountPage() {
       <p className="font-mono text-xs text-zinc-500">
         auth.users.id: {user.id}
       </p>
+      <a
+        href="/start"
+        className="mt-4 rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-zinc-950"
+      >
+        Continuar
+      </a>
       <form action="/auth/signout" method="post">
-        <button className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm">
+        <button className="text-sm text-zinc-500 underline">
           Cerrar sesión
         </button>
       </form>
