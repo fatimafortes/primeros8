@@ -116,10 +116,50 @@ effect (existed before I asked for it to run — noted, not chased further). Mig
   Scope cut, stated plainly: "edit before accepting" is "schedule a different window manually instead"
   (the existing `/admin/drills/new` form), not a dedicated inline-edit UI for the proposal's own fields.
 
-**Still pending on the Supabase side, none of it run yet:**
-1. Migration 0006 (`p8_site_aggregates()` function) — blocks the admin dashboard and the scheduler both.
-2. `seed.sql` — ID is filled in and committed, ready to run.
+**Confirmed same day:** migration 0006 ran clean, `seed.sql` ran clean — Zona A shows 3 responses, Zona B
+shows 5, the floor visibly crossed in one and not the other, on the live dashboard.
 
-**Tomorrow's first move:** run 0006, then `seed.sql`, then do a full live walkthrough end to end on both
-roles — admin (schedule → dashboard → propose → accept) and worker (enroll → wait → trigger → protect →
-check in → debrief) — to see what the mechanical test pass (feature 9) actually catches.
+## 2026-09-19 (cont.) — Feature 9: mechanical test pass
+
+Walked all 10 items in `docs/PACKET.md` §12 against the live URL, by code inspection plus what was
+already confirmed live. Items 1, 3, 4, 5, 8, 9 pass by code inspection (not yet independently re-verified
+live post-fix). Item 6 confirmed live directly. Items 7 and 10 are correct by RLS policy design but need
+two logins or the SQL editor to actually exercise — can't self-verify without a second session.
+
+**Item 2 failed outright — the worst finding, not a small bug.** Grepped the whole codebase for anything
+that inserts into `p8_drill_events`: nothing did. The flowchart's own "scheduler picks a random moment
+inside the window" step was never built — only the receiving side (trigger screen, realtime subscription)
+existed. The obvious fix (client polls for the window's fire time) was rejected, not just avoided: it
+would put the fire moment in an inspectable network response before it happens, which breaks the one
+property the whole build depends on — surprise as the trigger. A human clicking a button at a moment of
+their choosing has the same problem, one step removed.
+
+**Fix, by explicit decision:** pg_cron, not a manual-only button. `fire_at` (migration 0007, new nullable
+column on `p8_drill_windows`) is computed server-side at window-creation time and never selected by any
+query whose result reaches a client — grepped to confirm after writing it, not just asserted. A
+`SECURITY DEFINER` function (migration 0008) checked every minute by pg_cron fires any window whose
+`fire_at` has passed; `EXECUTE` is deliberately *not* granted to `authenticated` on this one, unlike
+0005/0006 — nothing in the app should ever call it directly, only the cron job.
+
+An admin-only "Disparar ahora" override ships alongside it, labeled as a demo fallback, for if cron
+misbehaves mid-demo — needed no new privileged path at all, since the admin-of-site INSERT policy on
+`p8_drill_events` from migration 0002 already covers it.
+
+Caught while wiring this up: accepting a scheduler proposal (feature 8) was dropping
+`target_zone`/`target_shift`/`proposed_variant` when creating the resulting window — the adaptive
+scheduler would have correctly identified the worst zone in its rationale text, then fired at everyone
+anyway. Fixed in the same pass.
+
+Test-plan item 2 in the packet widened from a 2-minute example window to 30 — pg_cron's own resolution is
+roughly one minute, so 2 minutes left almost no margin to actually observe it.
+
+**Still pending on the Supabase side, none of it run yet:**
+1. Enable the `pg_cron` extension — Database → Extensions → search "pg_cron" → Enable. Can't be done from
+   the SQL Editor; needs `shared_preload_libraries`, dashboard-only. **If this isn't available on this
+   project's plan, the manual override still works on its own — say so immediately, nothing is blocked.**
+2. Migration 0007 (`fire_at`/targeting columns on `p8_drill_windows`).
+3. Migration 0008 (the firing function + `cron.schedule` call) — run only after the extension is enabled.
+
+**Tomorrow's first move:** enable pg_cron, run 0007 then 0008, then actually test item 2 live with a
+30-minute window — confirm cron fires it inside the window and never outside, and separately confirm the
+manual override still works and is gated to the window's own bounds.
