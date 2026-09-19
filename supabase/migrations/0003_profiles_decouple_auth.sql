@@ -1,0 +1,32 @@
+-- Migration 0003: allow p8_profiles rows that aren't tied to a real login
+-- Touches exactly one table: p8_profiles. One constraint dropped,
+-- nothing else. No DROP/TRUNCATE/ALTER/DELETE against anything
+-- outside p8_ — this ALTER is on a p8_ table, same as enabling RLS
+-- was in migration 0002.
+--
+-- Why: p8_profiles.id currently must reference an existing auth.users
+-- row. Correct for anyone who actually signs in (you, and later real
+-- workers), but it blocks the feature 2 seed entirely — an invented
+-- worker has never logged in, so no auth.users row exists for them,
+-- and creating one would mean inserting into auth.users, which is
+-- off-limits (not a p8_ table, and "the seed script only inserts into
+-- p8_ tables" already rules it out).
+--
+-- Nothing else changes. id stays the primary key. Real accounts keep
+-- using id = auth.uid() exactly as before — no app code change. Every
+-- RLS policy from migration 0002 keeps working unchanged, since they
+-- all compare against auth.uid() at query time, not against this
+-- constraint. Seed workers get id = gen_random_uuid() and are simply
+-- invisible under the existing self-only policies, because nobody is
+-- ever authenticated as them — correct behavior for invented data.
+--
+-- Before running: confirm the constraint name below is actually
+-- p8_profiles_id_fkey (Postgres' default auto-generated name for this
+-- shape of constraint). If this DROP errors with "constraint does not
+-- exist," run this first to get the real name, then substitute it:
+--
+--   select conname from pg_constraint
+--   where conrelid = 'p8_profiles'::regclass and contype = 'f';
+
+alter table p8_profiles
+  drop constraint p8_profiles_id_fkey;
