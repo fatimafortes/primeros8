@@ -13,6 +13,9 @@ export const drillWindowSchema = z
     siteId: z.string().uuid(),
     startsAt: z.string().min(1, "Falta la fecha de inicio"),
     endsAt: z.string().min(1, "Falta la fecha de fin"),
+    targetZone: z.enum(ZONES).optional(),
+    targetShift: z.enum(SHIFTS).optional(),
+    scenarioVariant: z.string().trim().min(1).max(120).optional(),
   })
   .refine((data) => new Date(data.endsAt).getTime() > new Date(data.startsAt).getTime(), {
     message: "La ventana debe terminar después de empezar",

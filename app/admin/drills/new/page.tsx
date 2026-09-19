@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createDrillWindow } from "@/app/actions/drills";
+import { ZONES, SHIFTS } from "@/lib/validation";
+import { SCENARIO_VARIANTS } from "@/lib/scheduler";
 
 export default async function NewDrillWindowPage(
   props: PageProps<"/admin/drills/new">,
@@ -52,6 +54,58 @@ export default async function NewDrillWindowPage(
             className="rounded border border-white/20 bg-transparent px-3 py-2"
           />
         </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Escenario
+          <select
+            name="scenarioVariant"
+            className="rounded border border-white/20 bg-transparent px-3 py-2"
+          >
+            {SCENARIO_VARIANTS.map((v) => (
+              <option key={v} value={v} className="bg-zinc-950">
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Zona objetivo (opcional — vacío = toda la planta)
+          <select
+            name="targetZone"
+            defaultValue=""
+            className="rounded border border-white/20 bg-transparent px-3 py-2"
+          >
+            <option value="" className="bg-zinc-950">
+              Toda la planta
+            </option>
+            {ZONES.map((z) => (
+              <option key={z} value={z} className="bg-zinc-950">
+                {z}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Turno objetivo (opcional)
+          <select
+            name="targetShift"
+            defaultValue=""
+            className="rounded border border-white/20 bg-transparent px-3 py-2"
+          >
+            <option value="" className="bg-zinc-950">
+              Todos los turnos
+            </option>
+            {SHIFTS.map((s) => (
+              <option key={s} value={s} className="bg-zinc-950">
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-zinc-500">
+          El momento exacto del disparo se elige al azar dentro de la
+          ventana y no se muestra aquí ni en ninguna otra pantalla —
+          eso es lo que lo hace un simulacro sin aviso.
+        </p>
         <button
           type="submit"
           className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-950"

@@ -6,6 +6,18 @@ export type ZoneAggregate = {
   avg_assembly_ms: number | null;
 };
 
+// A random instant strictly inside [startsAt, endsAt], computed
+// server-side. Callers must never return this value to a client or
+// select it in a query whose result reaches a rendered component —
+// it's the one thing in this whole product that has to stay a secret
+// until it happens.
+export function randomFireAt(startsAt: string, endsAt: string): string {
+  const startMs = new Date(startsAt).getTime();
+  const endMs = new Date(endsAt).getTime();
+  const fireMs = startMs + Math.random() * (endMs - startMs);
+  return new Date(fireMs).toISOString();
+}
+
 export type SchedulerProposal = {
   targetZone: string;
   targetShift: string;
@@ -16,7 +28,7 @@ export type SchedulerProposal = {
 // Rotated by how many proposals this site has already made, not
 // random — the same zone/shift pair won't get the same variant twice
 // in a row.
-const SCENARIO_VARIANTS = [
+export const SCENARIO_VARIANTS = [
   "Sismo 6.2 simulado",
   "Fuga de montacargas simulada",
   "Corte eléctrico simulado",

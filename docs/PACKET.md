@@ -124,7 +124,7 @@ If this slice works, the product becomes the measurement layer for emergency reh
 
 **Mechanical pass**
 1. Admin schedules a window in the past → rejected with a clear message.
-2. Trigger fires inside the window, never outside it (run with a 2-minute window).
+2. Trigger fires inside the window, never outside it — fired automatically by pg_cron (checked every minute) at a random moment never exposed to any client beforehand; the admin-only "Disparar ahora" demo override is the fallback if cron misbehaves during a live demo. Run with a 30-minute window, not 2 — cron's own resolution is roughly one minute, and a 2-minute window leaves almost no margin to actually observe the automatic path firing.
 3. Worker who opted out of immersion gets the text path, never the 3D scene.
 4. Time-to-protective-action recorded to the millisecond; check one entry by hand against the log.
 5. Geolocation denied → check-in still possible manually, flagged as unverified.

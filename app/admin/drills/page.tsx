@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fireWindowNow } from "@/app/actions/drills";
 
 const STATUS_LABEL: Record<string, string> = {
   scheduled: "Programado",
@@ -7,7 +8,13 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelado",
 };
 
-export default async function AdminDrillsPage() {
+function isWithinWindow(startsAt: string, endsAt: string): boolean {
+  const now = Date.now();
+  return now >= new Date(startsAt).getTime() && now <= new Date(endsAt).getTime();
+}
+
+export default async function AdminDrillsPage(props: PageProps<"/admin/drills">) {
+  const { error } = await props.searchParams;
   const supabase = await createClient();
   const { data: windows } = await supabase
     .from("p8_drill_windows")
@@ -26,18 +33,46 @@ export default async function AdminDrillsPage() {
         </a>
       </div>
 
+      {error && (
+        <p className="text-sm text-red-400">
+          {Array.isArray(error) ? error[0] : error}
+        </p>
+      )}
+
       <ul className="flex flex-col gap-2">
-        {(windows ?? []).map((w) => (
-          <li key={w.id} className="rounded border border-white/10 p-3 text-sm">
-            <span className="font-mono">
-              {new Date(w.starts_at).toLocaleString("es-MX")} –{" "}
-              {new Date(w.ends_at).toLocaleString("es-MX")}
-            </span>{" "}
-            <span className="text-zinc-500">
-              · {STATUS_LABEL[w.status] ?? w.status}
-            </span>
-          </li>
-        ))}
+        {(windows ?? []).map((w) => {
+          const canFireManually =
+            w.status === "scheduled" && isWithinWindow(w.starts_at, w.ends_at);
+
+          return (
+            <li
+              key={w.id}
+              className="flex items-center justify-between rounded border border-white/10 p-3 text-sm"
+            >
+              <div>
+                <span className="font-mono">
+                  {new Date(w.starts_at).toLocaleString("es-MX")} –{" "}
+                  {new Date(w.ends_at).toLocaleString("es-MX")}
+                </span>{" "}
+                <span className="text-zinc-500">
+                  · {STATUS_LABEL[w.status] ?? w.status}
+                </span>
+              </div>
+              {canFireManually && (
+                <form action={fireWindowNow}>
+                  <input type="hidden" name="windowId" value={w.id} />
+                  <button
+                    type="submit"
+                    className="rounded-full border border-amber-400 px-3 py-1 text-xs font-medium text-amber-400"
+                    title="Anulación de demo — el disparo normal es automático y sin aviso"
+                  >
+                    Disparar ahora (anulación de demo)
+                  </button>
+                </form>
+              )}
+            </li>
+          );
+        })}
         {(windows ?? []).length === 0 && (
           <li className="text-zinc-500">Sin ventanas programadas todavía.</li>
         )}

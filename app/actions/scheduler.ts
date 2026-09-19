@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { proposeNextDrill, type ZoneAggregate } from "@/lib/scheduler";
+import { proposeNextDrill, randomFireAt, type ZoneAggregate } from "@/lib/scheduler";
 
 export async function proposeNextWindow() {
   const supabase = await createClient();
@@ -71,7 +71,9 @@ export async function acceptProposal(formData: FormData) {
 
   const { data: proposal } = await supabase
     .from("p8_scheduler_proposals")
-    .select("id, site_id, proposed_starts_at, proposed_ends_at, status")
+    .select(
+      "id, site_id, proposed_starts_at, proposed_ends_at, proposed_variant, target_zone, target_shift, status",
+    )
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal || proposal.status !== "pending") redirect("/admin/dashboard");
@@ -83,6 +85,10 @@ export async function acceptProposal(formData: FormData) {
       starts_at: proposal.proposed_starts_at,
       ends_at: proposal.proposed_ends_at,
       created_by: user.id,
+      fire_at: randomFireAt(proposal.proposed_starts_at, proposal.proposed_ends_at),
+      target_zone: proposal.target_zone,
+      target_shift: proposal.target_shift,
+      scenario_variant: proposal.proposed_variant,
     });
 
   if (windowError) {
