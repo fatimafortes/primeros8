@@ -13,6 +13,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
         <p className="text-sm text-zinc-400">PRIMEROS 8 · Admin</p>
         <nav className="flex gap-4 text-sm">
+          <a href="/admin/dashboard" className="underline">
+            Resultados
+          </a>
           <a href="/admin/sites" className="underline">
             Sitios
           </a>
