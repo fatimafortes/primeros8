@@ -8,6 +8,9 @@ export default function Home() {
         <p className="max-w-md text-zinc-400">
           Simulacro sin aviso, medido. En construcción.
         </p>
+        <a href="/login" className="text-sm underline text-zinc-300">
+          Iniciar sesión
+        </a>
       </main>
       <DisclaimerFooter />
     </div>
