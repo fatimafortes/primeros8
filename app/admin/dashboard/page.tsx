@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { proposeNextWindow, acceptProposal } from "@/app/actions/scheduler";
 
 type SiteAggregateRow = {
   zone: string;
@@ -8,15 +9,38 @@ type SiteAggregateRow = {
   avg_assembly_ms: number | null;
 };
 
+type SchedulerProposalRow = {
+  id: string;
+  proposed_starts_at: string;
+  proposed_ends_at: string;
+  proposed_variant: string;
+  target_zone: string | null;
+  target_shift: string | null;
+  rationale: string | null;
+  status: string;
+};
+
 function formatMs(ms: number | null) {
   if (ms == null) return "—";
   return `${(ms / 1000).toFixed(1)} s`;
 }
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage(
+  props: PageProps<"/admin/dashboard">,
+) {
+  const { error } = await props.searchParams;
   const supabase = await createClient();
   const { data } = await supabase.rpc("p8_site_aggregates");
   const aggregates = (data ?? []) as SiteAggregateRow[];
+
+  const { data: latestProposal } = await supabase
+    .from("p8_scheduler_proposals")
+    .select(
+      "id, proposed_starts_at, proposed_ends_at, proposed_variant, target_zone, target_shift, rationale, status",
+    )
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<SchedulerProposalRow>();
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,6 +49,12 @@ export default async function AdminDashboardPage() {
         Promedios por zona y turno. Nunca nombres, nunca filas
         individuales — mínimo 5 respuestas para mostrar un promedio.
       </p>
+
+      {error && (
+        <p className="text-sm text-red-400">
+          {Array.isArray(error) ? error[0] : error}
+        </p>
+      )}
 
       <div className="grid gap-3">
         {(aggregates ?? []).map((row) => (
@@ -71,6 +101,54 @@ export default async function AdminDashboardPage() {
           <p className="text-zinc-500">Sin resultados todavía.</p>
         )}
       </div>
+
+      <section className="rounded border border-white/10 p-4">
+        <h2 className="text-lg font-semibold">Próxima ventana sugerida</h2>
+        {latestProposal && latestProposal.status === "pending" ? (
+          <div className="mt-2 flex flex-col gap-2 text-sm">
+            <p>
+              {new Date(latestProposal.proposed_starts_at).toLocaleString(
+                "es-MX",
+              )}{" "}
+              –{" "}
+              {new Date(latestProposal.proposed_ends_at).toLocaleString(
+                "es-MX",
+              )}
+            </p>
+            <p className="text-zinc-400">
+              {latestProposal.target_zone} · {latestProposal.target_shift} ·{" "}
+              {latestProposal.proposed_variant}
+            </p>
+            <p className="text-xs text-zinc-500">{latestProposal.rationale}</p>
+            <div className="flex gap-3">
+              <form action={acceptProposal}>
+                <input type="hidden" name="proposalId" value={latestProposal.id} />
+                <button
+                  type="submit"
+                  className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-950"
+                >
+                  Aceptar y programar
+                </button>
+              </form>
+              <a
+                href="/admin/drills/new"
+                className="rounded-full border border-white/20 px-4 py-2 text-sm"
+              >
+                Programar otra manualmente
+              </a>
+            </div>
+          </div>
+        ) : (
+          <form action={proposeNextWindow} className="mt-3">
+            <button
+              type="submit"
+              className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-950"
+            >
+              Proponer siguiente ventana
+            </button>
+          </form>
+        )}
+      </section>
     </div>
   );
 }
