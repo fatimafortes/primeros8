@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/profile";
+import { findPendingEventId } from "@/lib/pendingEvent";
 import { WaitingRoom } from "@/components/WaitingRoom";
 
 export default async function WorkerHomePage() {
@@ -13,28 +14,9 @@ export default async function WorkerHomePage() {
   // not just "wait for the next live INSERT." Without this, a fired
   // event that arrived before the tab was subscribed is invisible
   // forever, no matter how many times the page reloads.
-  const { data: recentEvents } = await supabase
-    .from("p8_drill_events")
-    .select("id")
-    .order("fired_at", { ascending: false })
-    .limit(5);
-
-  if (recentEvents && recentEvents.length > 0) {
-    const { data: existingResponses } = await supabase
-      .from("p8_responses")
-      .select("drill_event_id")
-      .in(
-        "drill_event_id",
-        recentEvents.map((e) => e.id),
-      );
-
-    const respondedIds = new Set(
-      (existingResponses ?? []).map((r) => r.drill_event_id),
-    );
-    const pending = recentEvents.find((e) => !respondedIds.has(e.id));
-    if (pending) {
-      redirect(`/worker/trigger/${pending.id}`);
-    }
+  const pendingEventId = await findPendingEventId(supabase);
+  if (pendingEventId) {
+    redirect(`/worker/trigger/${pendingEventId}`);
   }
 
   return (
