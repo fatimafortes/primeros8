@@ -13,6 +13,26 @@ export default async function NewDrillWindowPage(
     .select("id, name")
     .order("created_at");
 
+  // Default to the site with the most enrolled workers, not just the
+  // first one created — "first created" is exactly how a window ended
+  // up pointed at a leftover test site nobody was actually enrolled
+  // in.
+  const { data: workerProfiles } = await supabase
+    .from("p8_profiles")
+    .select("site_id")
+    .eq("role", "worker");
+
+  const siteWorkerCounts = new Map<string, number>();
+  for (const row of workerProfiles ?? []) {
+    if (row.site_id) {
+      siteWorkerCounts.set(row.site_id, (siteWorkerCounts.get(row.site_id) ?? 0) + 1);
+    }
+  }
+  const defaultSiteId =
+    [...siteWorkerCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+    sites?.[0]?.id ??
+    "";
+
   return (
     <div className="max-w-sm">
       <h1 className="text-xl font-bold">Programar ventana</h1>
@@ -21,7 +41,6 @@ export default async function NewDrillWindowPage(
           {Array.isArray(error) ? error[0] : error}
         </p>
       )}
-
       {(sites ?? []).length > 0 && (
         <div className="mt-4 rounded border border-amber-400/40 bg-zinc-900 p-3">
           <p className="text-sm font-semibold">Ventana de prueba</p>
@@ -30,8 +49,25 @@ export default async function NewDrillWindowPage(
             por defecto — para probar el disparo o grabar el demo sin
             pelear con fechas.
           </p>
-          <form action={createTestWindow} className="mt-2">
-            <input type="hidden" name="siteId" value={sites![0].id} />
+          <form action={createTestWindow} className="mt-2 flex flex-col gap-2">
+            <label className="flex flex-col gap-1 text-sm">
+              Sitio
+              <select
+                name="siteId"
+                required
+                defaultValue={defaultSiteId}
+                className="rounded border border-white/20 bg-transparent px-3 py-2"
+              >
+                {(sites ?? []).map((site) => (
+                  <option key={site.id} value={site.id} className="bg-zinc-950">
+                    {site.name}
+                    {siteWorkerCounts.get(site.id)
+                      ? ` (${siteWorkerCounts.get(site.id)} trabajador(es))`
+                      : " (sin trabajadores)"}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="submit"
               className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-zinc-950"
@@ -48,11 +84,15 @@ export default async function NewDrillWindowPage(
           <select
             name="siteId"
             required
+            defaultValue={defaultSiteId}
             className="rounded border border-white/20 bg-transparent px-3 py-2"
           >
             {(sites ?? []).map((site) => (
               <option key={site.id} value={site.id} className="bg-zinc-950">
                 {site.name}
+                {siteWorkerCounts.get(site.id)
+                  ? ` (${siteWorkerCounts.get(site.id)} trabajador(es))`
+                  : " (sin trabajadores)"}
               </option>
             ))}
           </select>

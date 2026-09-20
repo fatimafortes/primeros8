@@ -8,6 +8,20 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelado",
 };
 
+type DrillWindowRow = {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+  p8_sites: { name: string } | { name: string }[] | null;
+};
+
+function siteName(row: DrillWindowRow): string {
+  const rel = row.p8_sites;
+  if (!rel) return "sitio desconocido";
+  return Array.isArray(rel) ? (rel[0]?.name ?? "sitio desconocido") : rel.name;
+}
+
 function isWithinWindow(startsAt: string, endsAt: string): boolean {
   const now = Date.now();
   return now >= new Date(startsAt).getTime() && now <= new Date(endsAt).getTime();
@@ -25,12 +39,13 @@ function formatMx(iso: string): string {
 }
 
 export default async function AdminDrillsPage(props: PageProps<"/admin/drills">) {
-  const { error } = await props.searchParams;
+  const { error, created } = await props.searchParams;
   const supabase = await createClient();
-  const { data: windows } = await supabase
+  const { data } = await supabase
     .from("p8_drill_windows")
     .select("id, starts_at, ends_at, status, p8_sites(name)")
     .order("starts_at", { ascending: false });
+  const windows = (data ?? []) as DrillWindowRow[];
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,9 +64,18 @@ export default async function AdminDrillsPage(props: PageProps<"/admin/drills">)
           {Array.isArray(error) ? error[0] : error}
         </p>
       )}
+      {created && (
+        <p className="text-sm text-emerald-400">
+          Ventana creada en{" "}
+          <span className="font-semibold">
+            {Array.isArray(created) ? created[0] : created}
+          </span>
+          .
+        </p>
+      )}
 
       <ul className="flex flex-col gap-2">
-        {(windows ?? []).map((w) => {
+        {windows.map((w) => {
           const canFireManually =
             w.status === "scheduled" && isWithinWindow(w.starts_at, w.ends_at);
 
@@ -61,6 +85,7 @@ export default async function AdminDrillsPage(props: PageProps<"/admin/drills">)
               className="flex items-center justify-between rounded border border-white/10 p-3 text-sm"
             >
               <div>
+                <p className="font-semibold">{siteName(w)}</p>
                 <span className="font-mono">
                   {formatMx(w.starts_at)} – {formatMx(w.ends_at)}
                 </span>{" "}
@@ -83,7 +108,7 @@ export default async function AdminDrillsPage(props: PageProps<"/admin/drills">)
             </li>
           );
         })}
-        {(windows ?? []).length === 0 && (
+        {windows.length === 0 && (
           <li className="text-zinc-500">Sin ventanas programadas todavía.</li>
         )}
       </ul>

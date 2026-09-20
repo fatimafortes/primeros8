@@ -5,6 +5,18 @@ import { createClient } from "@/lib/supabase/server";
 import { drillWindowSchema, mxLocalToInstant } from "@/lib/validation";
 import { randomFireAt, SCENARIO_VARIANTS } from "@/lib/scheduler";
 
+async function siteNameFor(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  siteId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from("p8_sites")
+    .select("name")
+    .eq("id", siteId)
+    .maybeSingle();
+  return data?.name ?? "sitio desconocido";
+}
+
 export async function createDrillWindow(formData: FormData) {
   const raw = {
     siteId: formData.get("siteId"),
@@ -45,7 +57,8 @@ export async function createDrillWindow(formData: FormData) {
     redirect(`/admin/drills/new?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/admin/drills");
+  const name = await siteNameFor(supabase, parsed.data.siteId);
+  redirect(`/admin/drills?created=${encodeURIComponent(name)}`);
 }
 
 // One-click demo helper: starts now, ends in 30 minutes. Same insert
@@ -77,7 +90,8 @@ export async function createTestWindow(formData: FormData) {
     redirect(`/admin/drills/new?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/admin/drills");
+  const name = await siteNameFor(supabase, siteId);
+  redirect(`/admin/drills?created=${encodeURIComponent(name)}`);
 }
 
 // Demo override, admin-only, same p8_drill_events shape pg_cron's
