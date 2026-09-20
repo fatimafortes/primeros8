@@ -13,6 +13,17 @@ function isWithinWindow(startsAt: string, endsAt: string): boolean {
   return now >= new Date(startsAt).getTime() && now <= new Date(endsAt).getTime();
 }
 
+// Explicit timeZone, not the viewer's device setting — this is the
+// "echo it back so I can confirm" display, so it has to be unambiguous
+// regardless of what timezone whoever's looking at it is actually in.
+function formatMx(iso: string): string {
+  return new Date(iso).toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export default async function AdminDrillsPage(props: PageProps<"/admin/drills">) {
   const { error } = await props.searchParams;
   const supabase = await createClient();
@@ -51,11 +62,10 @@ export default async function AdminDrillsPage(props: PageProps<"/admin/drills">)
             >
               <div>
                 <span className="font-mono">
-                  {new Date(w.starts_at).toLocaleString("es-MX")} –{" "}
-                  {new Date(w.ends_at).toLocaleString("es-MX")}
+                  {formatMx(w.starts_at)} – {formatMx(w.ends_at)}
                 </span>{" "}
                 <span className="text-zinc-500">
-                  · {STATUS_LABEL[w.status] ?? w.status}
+                  (CDMX) · {STATUS_LABEL[w.status] ?? w.status}
                 </span>
               </div>
               {canFireManually && (

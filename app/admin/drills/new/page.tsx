@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { createDrillWindow } from "@/app/actions/drills";
+import { createDrillWindow, createTestWindow } from "@/app/actions/drills";
 import { ZONES, SHIFTS } from "@/lib/validation";
 import { SCENARIO_VARIANTS } from "@/lib/scheduler";
 
@@ -21,7 +21,28 @@ export default async function NewDrillWindowPage(
           {Array.isArray(error) ? error[0] : error}
         </p>
       )}
-      <form action={createDrillWindow} className="mt-4 flex flex-col gap-3">
+
+      {(sites ?? []).length > 0 && (
+        <div className="mt-4 rounded border border-amber-400/40 bg-zinc-900 p-3">
+          <p className="text-sm font-semibold">Ventana de prueba</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Empieza ahora, termina en 30 minutos. Toda la planta, escenario
+            por defecto — para probar el disparo o grabar el demo sin
+            pelear con fechas.
+          </p>
+          <form action={createTestWindow} className="mt-2">
+            <input type="hidden" name="siteId" value={sites![0].id} />
+            <button
+              type="submit"
+              className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-zinc-950"
+            >
+              Crear ventana de prueba (ahora + 30 min)
+            </button>
+          </form>
+        </div>
+      )}
+
+      <form action={createDrillWindow} className="mt-6 flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-sm">
           Sitio
           <select
@@ -36,6 +57,11 @@ export default async function NewDrillWindowPage(
             ))}
           </select>
         </label>
+        <p className="text-xs text-zinc-500">
+          Hora de Ciudad de México (UTC-6). El campo de tu navegador
+          muestra fecha y hora — si solo ves fecha, agranda la ventana o
+          usa el ícono de reloj del picker.
+        </p>
         <label className="flex flex-col gap-1 text-sm">
           Empieza
           <input

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { drillWindowSchema } from "@/lib/validation";
+import { drillWindowSchema, mxLocalToInstant } from "@/lib/validation";
 import { randomFireAt, SCENARIO_VARIANTS } from "@/lib/scheduler";
 
 export async function createDrillWindow(formData: FormData) {
@@ -27,8 +27,8 @@ export async function createDrillWindow(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const startsAtIso = new Date(parsed.data.startsAt).toISOString();
-  const endsAtIso = new Date(parsed.data.endsAt).toISOString();
+  const startsAtIso = mxLocalToInstant(parsed.data.startsAt);
+  const endsAtIso = mxLocalToInstant(parsed.data.endsAt);
 
   const { error } = await supabase.from("p8_drill_windows").insert({
     site_id: parsed.data.siteId,
@@ -39,6 +39,38 @@ export async function createDrillWindow(formData: FormData) {
     target_zone: parsed.data.targetZone ?? null,
     target_shift: parsed.data.targetShift ?? null,
     scenario_variant: parsed.data.scenarioVariant ?? SCENARIO_VARIANTS[0],
+  });
+
+  if (error) {
+    redirect(`/admin/drills/new?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect("/admin/drills");
+}
+
+// One-click demo helper: starts now, ends in 30 minutes. Same insert
+// shape as createDrillWindow, no date/time inputs to get wrong.
+export async function createTestWindow(formData: FormData) {
+  const siteId = formData.get("siteId");
+  if (typeof siteId !== "string") redirect("/admin/drills/new");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const startsAt = new Date();
+  const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
+  const startsAtIso = startsAt.toISOString();
+  const endsAtIso = endsAt.toISOString();
+
+  const { error } = await supabase.from("p8_drill_windows").insert({
+    site_id: siteId,
+    starts_at: startsAtIso,
+    ends_at: endsAtIso,
+    created_by: user?.id,
+    fire_at: randomFireAt(startsAtIso, endsAtIso),
+    scenario_variant: SCENARIO_VARIANTS[0],
   });
 
   if (error) {

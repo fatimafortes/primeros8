@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { proposeNextDrill, randomFireAt, type ZoneAggregate } from "@/lib/scheduler";
+import { mxDateOnly, mxLocalToInstant } from "@/lib/validation";
 
 export async function proposeNextWindow() {
   const supabase = await createClient();
@@ -36,16 +37,14 @@ export async function proposeNextWindow() {
     );
   }
 
-  const startsAt = new Date();
-  startsAt.setDate(startsAt.getDate() + 7);
-  startsAt.setHours(10, 0, 0, 0);
-  const endsAt = new Date(startsAt);
-  endsAt.setHours(14, 0, 0, 0);
+  const targetDate = mxDateOnly(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+  const proposedStartsAt = mxLocalToInstant(`${targetDate}T10:00`);
+  const proposedEndsAt = mxLocalToInstant(`${targetDate}T14:00`);
 
   const { error } = await supabase.from("p8_scheduler_proposals").insert({
     site_id: profile.site_id,
-    proposed_starts_at: startsAt.toISOString(),
-    proposed_ends_at: endsAt.toISOString(),
+    proposed_starts_at: proposedStartsAt,
+    proposed_ends_at: proposedEndsAt,
     proposed_variant: proposal.scenarioVariant,
     target_zone: proposal.targetZone,
     target_shift: proposal.targetShift,

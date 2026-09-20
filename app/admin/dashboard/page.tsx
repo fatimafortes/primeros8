@@ -25,6 +25,14 @@ function formatMs(ms: number | null) {
   return `${(ms / 1000).toFixed(1)} s`;
 }
 
+function formatMx(iso: string): string {
+  return new Date(iso).toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export default async function AdminDashboardPage(
   props: PageProps<"/admin/dashboard">,
 ) {
@@ -107,13 +115,8 @@ export default async function AdminDashboardPage(
         {latestProposal && latestProposal.status === "pending" ? (
           <div className="mt-2 flex flex-col gap-2 text-sm">
             <p>
-              {new Date(latestProposal.proposed_starts_at).toLocaleString(
-                "es-MX",
-              )}{" "}
-              –{" "}
-              {new Date(latestProposal.proposed_ends_at).toLocaleString(
-                "es-MX",
-              )}
+              {formatMx(latestProposal.proposed_starts_at)} –{" "}
+              {formatMx(latestProposal.proposed_ends_at)} (CDMX)
             </p>
             <p className="text-zinc-400">
               {latestProposal.target_zone} · {latestProposal.target_shift} ·{" "}
