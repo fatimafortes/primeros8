@@ -153,13 +153,40 @@ anyway. Fixed in the same pass.
 Test-plan item 2 in the packet widened from a 2-minute example window to 30 — pg_cron's own resolution is
 roughly one minute, so 2 minutes left almost no margin to actually observe it.
 
-**Still pending on the Supabase side, none of it run yet:**
-1. Enable the `pg_cron` extension — Database → Extensions → search "pg_cron" → Enable. Can't be done from
-   the SQL Editor; needs `shared_preload_libraries`, dashboard-only. **If this isn't available on this
-   project's plan, the manual override still works on its own — say so immediately, nothing is blocked.**
-2. Migration 0007 (`fire_at`/targeting columns on `p8_drill_windows`).
-3. Migration 0008 (the firing function + `cron.schedule` call) — run only after the extension is enabled.
+**Confirmed same day:** pg_cron enabled, migrations 0007 and 0008 ran clean, cron job scheduled (id 1).
 
-**Tomorrow's first move:** enable pg_cron, run 0007 then 0008, then actually test item 2 live with a
-30-minute window — confirm cron fires it inside the window and never outside, and separately confirm the
-manual override still works and is gated to the window's own bounds.
+## 2026-09-20 — Landing/routing fixes, timezone bug, site-mismatch bug
+
+- Post-sign-in landing was `/account`, a dead end with no forward link — `/start` already had the exact
+  role-routing logic needed (admin → dashboard, worker → enroll/waiting) but wasn't in the actual sign-in
+  path. One-line fix in `/auth/callback`'s default redirect. Landing page copy replaced ("En construcción"
+  → what the product actually is), CTA is session-aware.
+- **Real timezone bug, not a browser widget limitation:** `datetime-local` inputs have no timezone
+  attached; the server was parsing them as its own local time (Vercel = UTC), not Mexico City. "Today
+  15:00" (CDMX) was read as 15:00 UTC = 09:00 CDMX — already past most afternoons, so the "not in the
+  past" check kept forcing the date forward. Verified the root cause with `node -e` against real values
+  before calling it fixed, not just asserted. Same bug existed in the scheduler's proposed windows
+  (`setHours` is server-local too) — caught and fixed in the same pass, would have silently proposed
+  drills at 4am–8am CDMX. All drill-window times now go through explicit `-06:00`-offset conversion in
+  both directions (Mexico City has had no DST since 2022, so a fixed offset is safe here specifically).
+  Added a one-click "Ventana de prueba" (now + 30 min) so demo prep never has to fight date fields.
+- **Real firing didn't work after all of that — traced to a genuine site-ID mismatch, not an RLS bug.**
+  Fixed the reported "worker's waiting screen never updates" symptom first by adding a check on `/worker`
+  load for an already-existing eligible event (realtime only catches events that arrive while a tab is
+  subscribed) — didn't fix it. The user's own hypothesis was that the RLS policy's null-target handling
+  was broken; read the actual policy text before agreeing — it already had `target_zone is null or
+  p.zone = target_zone`, correct as written. Pushed back on the hypothesis with the policy text as
+  evidence, then found the real cause: a second site ("Planta Sur — ficticia") got created while testing
+  feature 3, and "Ventana de prueba" was silently defaulting to `sites[0]` — first created, not the site
+  any real worker was actually enrolled in. RLS was correctly hiding a real event from workers who
+  genuinely weren't at that site.
+- Fixed by making site explicit everywhere a window is created: both site `<select>`s now default to
+  whichever site has the most enrolled workers (a real count, not creation order), show that count per
+  option, and the drills list now renders each window's site name (the data was already being fetched via
+  the `p8_sites(name)` embed — just never rendered) plus a confirmation banner naming the site right after
+  creation.
+- Not deleting "Planta Sur — ficticia" — kept, just not defaulted to anymore.
+
+**Tomorrow's first move:** re-fire a test window against the correct site (should now default there
+automatically) and confirm the worker actually sees the trigger screen live — this specific bug has never
+been confirmed fixed end-to-end, only diagnosed and patched.
