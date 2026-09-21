@@ -9,6 +9,10 @@ export function ShakeScene() {
     if (audioStarted.current) return;
     audioStarted.current = true;
 
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([300, 100, 300, 100, 300, 100, 300]);
+    }
+
     try {
       const AudioContextCtor =
         window.AudioContext ??
