@@ -8,12 +8,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // actually pending" rule in two places that could drift apart).
 export async function findPendingEventId(
   supabase: SupabaseClient,
+  options?: { sinceIso?: string },
 ): Promise<string | null> {
-  const { data: recentEvents } = await supabase
+  let query = supabase
     .from("p8_drill_events")
     .select("id")
     .order("fired_at", { ascending: false })
     .limit(5);
+
+  if (options?.sinceIso) {
+    query = query.gte("fired_at", options.sinceIso);
+  }
+
+  const { data: recentEvents } = await query;
 
   if (!recentEvents || recentEvents.length === 0) return null;
 
